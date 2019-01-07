@@ -42,6 +42,13 @@ public class Utils {
 	private File baseSelecionada = null;
 	private TelaPrincipal telaPrincipal = null;
 	
+	private boolean isCheckedBaseSelecionada = false;
+	private boolean isCheckedLancamento = false;
+	private boolean isCheckedConsulta = false;
+	
+	private String label_intervaloDatas_DE = null;
+	private String label_intervaloDatas_ATE = null;
+	
 	public Utils() {}
 	
 	public Utils(TelaPrincipal tela) {
@@ -57,7 +64,6 @@ public class Utils {
 		try {
 			fileSusep = new FileInputStream(PROPERTIES_SUSEP);
 			propSusep.load(fileSusep);
-
 		} catch (Exception e) {
 			throw new Exception("Arquivo não encontrado. ERRO: "+e.getMessage());
 		}
@@ -271,4 +277,53 @@ public class Utils {
 	public static LocalDate getMespassado() {
 		return mesPassado;
 	}
+
+	public File getBaseSelecionada() {
+		return baseSelecionada;
+	}
+
+	public void setBaseSelecionada(File baseSelecionada) {
+		this.baseSelecionada = baseSelecionada;
+	}
+
+	public boolean isCheckedBaseSelecionada() {
+		return isCheckedBaseSelecionada;
+	}
+
+	public void setCheckedBaseSelecionada(boolean isCheckedBaseSelecionada) {
+		this.isCheckedBaseSelecionada = isCheckedBaseSelecionada;
+	}
+
+	public boolean isCheckedLancamento() {
+		return isCheckedLancamento;
+	}
+
+	public void setCheckedLancamento(boolean isCheckedLancamento) {
+		this.isCheckedLancamento = isCheckedLancamento;
+	}
+
+	public boolean isCheckedConsulta() {
+		return isCheckedConsulta;
+	}
+
+	public void setCheckedConsulta(boolean isCheckedConsulta) {
+		this.isCheckedConsulta = isCheckedConsulta;
+	}
+
+	public String getLabel_intervaloDatas_DE() {
+		return label_intervaloDatas_DE;
+	}
+
+	public void setLabel_intervaloDatas_DE(String label_intervaloDatas_DE) {
+		this.label_intervaloDatas_DE = label_intervaloDatas_DE;
+	}
+
+	public String getLabel_intervaloDatas_ATE() {
+		return label_intervaloDatas_ATE;
+	}
+
+	public void setLabel_intervaloDatas_ATE(String label_intervaloDatas_ATE) {
+		this.label_intervaloDatas_ATE = label_intervaloDatas_ATE;
+	}
+	
 }

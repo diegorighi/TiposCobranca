@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -48,6 +49,8 @@ public class Sics implements TipoCobranca {
 	
 	private List<Sics>listaSics = new ArrayList<Sics>();
 	private List<String>listaSucursalNula = new ArrayList<String>();
+	private List<SicsConsulta>listaSicsConsulta = new ArrayList<SicsConsulta>();
+	private List<SicsSUSEP>listaSicsSUSEP = new ArrayList<SicsSUSEP>();
 	
 	private int countLinhas = 0;
 	private int countSubsidio = 0;
@@ -62,9 +65,18 @@ public class Sics implements TipoCobranca {
 	private String subsidio = null;
 	
 	private String nomeArquivoGerado = null;
+	
+	private LocalDate primeiroDiaDoMes = null;
+	private LocalDate ultimoDiaDoMes = null;
 
 	public Sics(){
 		
+	}
+	
+	public Sics(String susep, LocalDate primeiroDiaDoMes, LocalDate ultimoDiaDoMes) {
+		this.susep = susep;
+		this.primeiroDiaDoMes = primeiroDiaDoMes;
+		this.ultimoDiaDoMes = ultimoDiaDoMes;
 	}
 	
 	public Sics(String susep, String sucursal, String dataDebito, String valorServico, String descricao) {
@@ -80,26 +92,32 @@ public class Sics implements TipoCobranca {
 	@Override
 	public void start(BufferedReader br, Utils utils) throws IOException {
 		while ((this.linhaAtualDoCSV = br.readLine()) != null) {
-			setCountLinhas(getCountLinhas()+1);
-			setLinhaFormatada(this.linhaAtualDoCSV.split(";"));
-			setSusep(getLinhaFormatada()[0].toUpperCase().trim());
-			setSucursal(utils.getSucursal(getSusep(), this));
-			
-			if(getSucursal() == "" || getSucursal().equals(null) || getSucursal().equals("") || getSucursal() == null) {
-				setCountSucursalNulas(getCountSucursalNulas()+1);
-				this.listaSucursalNula.add(getSusep());
-				System.out.println(getCountSucursalNulas());
-			}
-			
-			
-			
-			generateFileContent();
-			
+			extrairInsumos(utils);
+			if(utils.isCheckedConsulta())
+				generateSearchFileContent(utils);
 		}
-		generateFile(utils);
+		if(utils.isCheckedLancamento())
+			generateFile(utils);
+		if(utils.isCheckedConsulta())
+			generateFileSearch();
 		if(getCountSucursalNulas() <= -3)
 			generateAlertSucursal();
 		getDetails();
+	}
+
+	private void extrairInsumos(Utils utils) {
+		setCountLinhas(getCountLinhas()+1);
+		setLinhaFormatada(this.linhaAtualDoCSV.split(";"));
+		setSusep(getLinhaFormatada()[0].toUpperCase().trim());
+		setSucursal(utils.getSucursal(getSusep(), this));
+		
+		if(getSucursal() == "" || getSucursal().equals(null) || getSucursal().equals("") || getSucursal() == null) {
+			setCountSucursalNulas(getCountSucursalNulas()+1);
+			this.listaSucursalNula.add(getSusep());
+			System.out.println(getCountSucursalNulas());
+		}
+		
+		generateFileContent();
 	}
 	
 	public void generateFileContent() {
@@ -129,10 +147,60 @@ public class Sics implements TipoCobranca {
 				gravarArq.flush();
 			}
 			gravarArq.close();
+			
+			generateSicsSusepFile(utils);
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
 		}
+	}
+	
+	public void generateSicsSusepFile(Utils utils) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("CONSULTASICS");
+		sb.append(utils.getDataArquivo());
+		sb.append(".txt");
+		
+		this.nomeArquivoGerado = sb.toString();
+		
+		try {
+			FileWriter arq = new FileWriter(System.getProperty("user.dir") + "\\" + sb.toString());
+			PrintWriter gravarArq = new PrintWriter(arq);
+
+			for (SicsSUSEP objeto : listaSicsSUSEP) {
+				gravarArq.println(objeto.toString());
+				gravarArq.flush();
+			}
+			gravarArq.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+		}
+	}
+	
+	public void generateFileSearch() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("CONSUSEPSICS");
+		sb.append(".txt");
+		
+		try {
+			FileWriter arq = new FileWriter(System.getProperty("user.dir") + "\\" + sb.toString());
+			PrintWriter gravarArq = new PrintWriter(arq);
+
+			for (SicsConsulta objeto : listaSicsConsulta) {
+				gravarArq.println(objeto.toString());
+				gravarArq.flush();
+			}
+			gravarArq.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+		}
+	}
+	
+	public void generateSearchFileContent(Utils utils) {
+		addToArrayConsulta(utils);
 	}
 	
 	public void generateAlertSucursal() {
@@ -177,12 +245,37 @@ public class Sics implements TipoCobranca {
 			this.countSemSubsidio++;
 			addListaSics(new Sics(linhaFormatada[0].toUpperCase(), getSucursal().toUpperCase(), DATA_ATUAL.format(FORMATTER), 
 					"-" + linhaFormatada[9].toUpperCase(), getDescricao()));
+			
+			// ADICIONA CONSULTA-SUSEP 
+			
+			addListaSicsSUSEP(new SicsSUSEP(linhaFormatada[0].toUpperCase(), getSucursal().toUpperCase(), DATA_ATUAL.format(FORMATTER),
+					linhaFormatada[9].toUpperCase()));
 		}else {
 			this.countSubsidio++;
 			addListaSics(new Sics(linhaFormatada[0].toUpperCase(), getSucursal().toUpperCase(), DATA_ATUAL.format(FORMATTER), 
 					"-" + linhaFormatada[4].toUpperCase(), getDescricao()));
 			addListaSics(new Sics(linhaFormatada[0].toUpperCase(), getSucursal().toUpperCase(), DATA_ATUAL.format(FORMATTER), 
 					"-" + getSubsidio(), getDescricao()));
+			
+			addListaSicsSUSEP(new SicsSUSEP(linhaFormatada[0].toUpperCase(), getSucursal().toUpperCase(), DATA_ATUAL.format(FORMATTER),
+					linhaFormatada[4].toUpperCase()));
+			addListaSicsSUSEP(new SicsSUSEP(linhaFormatada[0].toUpperCase(), getSucursal().toUpperCase(), DATA_ATUAL.format(FORMATTER),
+					getSubsidio()));
+			
+		}
+		
+		
+		
+		
+	}
+	
+	
+	private void addToArrayConsulta(Utils utils) {
+		if(getSucursal() != "null") {
+			addListaSicsConsulta(new SicsConsulta(linhaFormatada[0].toUpperCase(), 
+					utils.getLabel_intervaloDatas_DE(),
+					utils.getLabel_intervaloDatas_ATE()
+			));
 		}
 	}
 
@@ -337,6 +430,14 @@ public class Sics implements TipoCobranca {
 	public void addListaSics(Sics objeto) {
 		this.listaSics.add(objeto);
 	}
+	
+	public void addListaSicsSUSEP(SicsSUSEP objeto) {
+		this.listaSicsSUSEP.add(objeto);
+	}
+	
+	public void addListaSicsConsulta(SicsConsulta objeto) {
+		this.listaSicsConsulta.add(objeto);
+	}
 
 	public int getCountLinhas() {
 		return countLinhas;
@@ -413,6 +514,30 @@ public class Sics implements TipoCobranca {
 	
 	public List<Sics> getListaSics() {
 		return listaSics;
+	}
+	
+	public String getNomeArquivoGerado() {
+		return nomeArquivoGerado;
+	}
+
+	public void setNomeArquivoGerado(String nomeArquivoGerado) {
+		this.nomeArquivoGerado = nomeArquivoGerado;
+	}
+
+	public LocalDate getPrimeiroDiaDoMes() {
+		return primeiroDiaDoMes;
+	}
+
+	public void setPrimeiroDiaDoMes(LocalDate primeiroDiaDoMes) {
+		this.primeiroDiaDoMes = primeiroDiaDoMes;
+	}
+
+	public LocalDate getUltimoDiaDoMes() {
+		return ultimoDiaDoMes;
+	}
+
+	public void setUltimoDiaDoMes(LocalDate ultimoDiaDoMes) {
+		this.ultimoDiaDoMes = ultimoDiaDoMes;
 	}
 
 	@Override

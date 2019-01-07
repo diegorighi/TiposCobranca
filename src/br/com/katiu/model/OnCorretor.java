@@ -48,6 +48,8 @@ public class OnCorretor implements TipoCobranca {
 
 	private ArrayList<OnCorretor> listaOnCorretor = new ArrayList<OnCorretor>();
 	private List<String>listaSucursalNula = new ArrayList<String>();
+	private List<OnCorretorConsulta>listaOnCorretorConsulta = new ArrayList<OnCorretorConsulta>();
+	private List<OnCorretorSUSEP>listaOnCorretorSUSEP = new ArrayList<OnCorretorSUSEP>();
 
 	private int countLinhas = 0;
 	private int countSubsidio = 0;
@@ -78,24 +80,64 @@ public class OnCorretor implements TipoCobranca {
 	@Override
 	public void start(BufferedReader br, Utils utils) throws IOException {
 		while ((this.linhaAtualDoCSV = br.readLine()) != null) {
-			setLinhaFormatada(this.linhaAtualDoCSV.split(";"));
-				setCountLinhas(getCountLinhas() + 1);
-				if (!getLinhaFormatada()[2].toUpperCase().trim().contains("SUSEP")) {
-					setSusep(getLinhaFormatada()[2].toUpperCase().trim());
-					setSucursal(utils.getSucursal(getSusep(), this));
-					
-					if(getSucursal() == "null") {
-						setCountSucursalNulas(getCountSucursalNulas()+1);
-						this.listaSucursalNula.add(getSusep());
-					}
-
-					generateFileContent();
-				}
+			extrairInsumos(utils);
+			if(utils.isCheckedConsulta())
+				generateSearchFileContent(utils);
+			
 		}
-		generateFile(utils);
+		
+		if(utils.isCheckedLancamento()) {
+			generateFile(utils); // ARQUIVO DE LANÇAMENTO
+			generateFileConsultaSUSEP(utils); // ESCREVE O ARQUIVO DE CONSULTA
+		}
+		if(utils.isCheckedConsulta())
+			generateFileSearch();
 		if(getCountSucursalNulas() >= 1)
 			generateAlertSucursal();
 		getDetails();
+	}
+	
+	public void generateConsultaSUSEPContent(Utils utils){
+		addArraySUSEP(utils);
+	}
+	
+	private void generateFileConsultaSUSEP(Utils utils) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("CONSULTAONCORRETOR");
+		sb.append(utils.getDataArquivo());
+		sb.append(".txt");
+		
+		try {
+			FileWriter arq = new FileWriter(System.getProperty("user.dir") + "\\" + sb.toString());
+			PrintWriter gravarArq = new PrintWriter(arq);
+
+			for (OnCorretorSUSEP objeto : listaOnCorretorSUSEP) {
+				gravarArq.println(objeto.toString());
+				gravarArq.flush();
+			}
+			gravarArq.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+		}
+		addToArrayConsulta(utils);
+	}
+
+	private void extrairInsumos(Utils utils) {
+		setLinhaFormatada(this.linhaAtualDoCSV.split(";"));
+		setCountLinhas(getCountLinhas() + 1);
+		if (!getLinhaFormatada()[2].toUpperCase().trim().contains("SUSEP")) {
+			setSusep(getLinhaFormatada()[2].toUpperCase().trim());
+			setSucursal(utils.getSucursal(getSusep(), this));
+			
+			if(getSucursal() == "null") {
+				setCountSucursalNulas(getCountSucursalNulas()+1);
+				this.listaSucursalNula.add(getSusep());
+			}
+			
+			generateFileContent(utils);
+			
+		}
 	}
 	
 	public void generateAlertSucursal() {
@@ -124,13 +166,35 @@ public class OnCorretor implements TipoCobranca {
 	public String nomeDoArquivo() {
 		return "arquivoOnCorretor.csv";
 	}
+	
+	public void generateSearchFileContent(Utils utils){
+		addToArrayConsulta(utils);
+	}
 
-	public void generateFileContent() {
+	public void generateFileContent(Utils utils) {
 		if (getSucursal() != "null") {
 			descriptionGenerate();
 			addToArray();
+			addArraySUSEP(utils);
 		} else {
 			this.countSucursalNulas++;
+		}
+	}
+	
+	public void addToArrayConsulta(Utils utils) {
+		if(!linhaFormatada[2].toUpperCase().contains("SUSEP")) {
+			addListaOnCorretorConsulta(new OnCorretorConsulta(linhaFormatada[2].toUpperCase(), 
+					utils.getLabel_intervaloDatas_DE(),
+					utils.getLabel_intervaloDatas_ATE()
+			));
+		}
+	}
+	
+	public void addArraySUSEP(Utils utils) {
+		if(!linhaFormatada[2].toUpperCase().contains("SUSEP")) {
+			addListaOnCorretorSUSEP(new OnCorretorSUSEP(linhaFormatada[2].toUpperCase(), getSucursal(),
+					DATA_ATUAL.format(FORMATTER), linhaFormatada[1]
+			));
 		}
 	}
 
@@ -333,6 +397,8 @@ public class OnCorretor implements TipoCobranca {
 	public void setLinhaFormatada(String[] linhaFormatada) {
 		this.linhaFormatada = linhaFormatada;
 	}
+	
+	
 
 	public String getDescricao() {
 		return descricao;
@@ -348,6 +414,14 @@ public class OnCorretor implements TipoCobranca {
 
 	public void setSubsidio(String subsidio) {
 		this.subsidio = subsidio;
+	}
+	
+	public void addListaOnCorretorSUSEP(OnCorretorSUSEP objeto) {
+		this.listaOnCorretorSUSEP.add(objeto);
+	}
+	
+	public void addListaOnCorretorConsulta(OnCorretorConsulta objeto) {
+		this.listaOnCorretorConsulta.add(objeto);
 	}
 
 	public void addListaOnCorretor(OnCorretor objeto) {
@@ -376,6 +450,26 @@ public class OnCorretor implements TipoCobranca {
 			PrintWriter gravarArq = new PrintWriter(arq);
 
 			for (OnCorretor objeto : listaOnCorretor) {
+				gravarArq.println(objeto.toString());
+				gravarArq.flush();
+			}
+			gravarArq.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+		}
+	}
+	
+	public void generateFileSearch() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("CONSUSEPONCORRETOR");
+		sb.append(".txt");
+		
+		try {
+			FileWriter arq = new FileWriter(System.getProperty("user.dir") + "\\" + sb.toString());
+			PrintWriter gravarArq = new PrintWriter(arq);
+
+			for (OnCorretorConsulta objeto : listaOnCorretorConsulta) {
 				gravarArq.println(objeto.toString());
 				gravarArq.flush();
 			}
